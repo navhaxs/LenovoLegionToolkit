@@ -5,7 +5,7 @@
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<Platforms>x64</Platforms>
 		<OutputType>Exe</OutputType>
-		<AssemblyName>SpectrumTester</AssemblyName>
+		<AssemblyName>SpectrumBacklightTimeout</AssemblyName>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<SelfContained>false</SelfContained>

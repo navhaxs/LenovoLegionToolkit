@@ -1,21 +1,10 @@
 ﻿using System.Runtime.InteropServices;
 using LenovoLegionToolkit.Lib.Extensions;
 using LenovoLegionToolkit.Lib.System;
+using SpectrumBacklightTimeout;
 using Windows.Win32;
 
-// ReSharper disable all
-
-Console.WriteLine(@"How to use:
-  1. Make sure Vantage and LLT is closed.
-  2. Set the keyboard brightness to maximum.
-
-When ready, press any key to continue...
-");
-Console.ReadKey();
-
 var device = Devices.GetSpectrumRGBKeyboard();
-
-Console.WriteLine("Finding Spectrum keyboard...");
 
 if (device is null)
 {
@@ -24,142 +13,54 @@ if (device is null)
     return;
 }
 
+Console.WriteLine("Running...");
 
-Console.WriteLine("Spectrum keyboard found");
-Console.WriteLine();
-
-Console.WriteLine("Reading response for 0xD1...");
-SetFeature(device, new LENOVO_SPECTRUM_GENERIC_REQUEST(LENOVO_SPECTRUM_OPERATION_TYPE.UnknownD1, 0, 0));
-GetFeature(device, out LENOVO_SPECTRUM_GENERIC_RESPONSE resD1);
-Print(resD1.Bytes);
-Console.WriteLine();
-
-Console.WriteLine("Reading response for 0xC6...");
-SetFeature(device, new LENOVO_SPECTRUM_GENERIC_REQUEST(LENOVO_SPECTRUM_OPERATION_TYPE.UnknownC6, 0, 0));
-GetFeature(device, out LENOVO_SPECTRUM_GENERIC_RESPONSE resC6);
-Print(resC6.Bytes);
-Console.WriteLine();
-
-Console.WriteLine("Reading response for 0x04...");
-SetFeature(device, new LENOVO_SPECTRUM_GENERIC_REQUEST(LENOVO_SPECTRUM_OPERATION_TYPE.Unknown04, 0, 0));
-GetFeature(device, out LENOVO_SPECTRUM_GENERIC_RESPONSE res04);
-Print(res04.Bytes);
-Console.WriteLine();
-
-Console.WriteLine("Reading response for 0xC7...");
-SetFeature(device, new LENOVO_SPECTRUM_GENERIC_REQUEST(LENOVO_SPECTRUM_OPERATION_TYPE.UnknownC7, 0, 0));
-GetFeature(device, out LENOVO_SPECTRUM_GENERIC_RESPONSE resC7);
-Print(resC7.Bytes);
-Console.WriteLine();
-
-Console.WriteLine("Reading response for 0xC4 7...");
-SetFeature(device, new LENOVO_SPECTRUM_GENERIC_REQUEST(LENOVO_SPECTRUM_OPERATION_TYPE.UnknownC4, 7, 0));
-GetFeature(device, out LENOVO_SPECTRUM_GENERIC_RESPONSE resC47);
-Print(resC47.Bytes);
-Console.WriteLine();
-
-Console.WriteLine("Reading response for 0xC4 8...");
-SetFeature(device, new LENOVO_SPECTRUM_GENERIC_REQUEST(LENOVO_SPECTRUM_OPERATION_TYPE.UnknownC4, 8, 0));
-GetFeature(device, out LENOVO_SPECTRUM_GENERIC_RESPONSE resC48);
-Print(resC48.Bytes);
-Console.WriteLine();
-
-for (var i = 0; i < 10; i++)
-{
-    Console.WriteLine($"Reading response for 0xC5 7 {i}...");
-    SetFeature(device, new LENOVO_SPECTRUM_GENERIC_REQUEST(LENOVO_SPECTRUM_OPERATION_TYPE.UnknownC5, 7, (byte)i));
-    GetFeature(device, out LENOVO_SPECTRUM_GENERIC_RESPONSE resC57);
-    Print(resC57.Bytes);
-    Console.WriteLine();
-}
-
-Console.WriteLine($"Reading response for 0xC5 8...");
-SetFeature(device, new LENOVO_SPECTRUM_GENERIC_REQUEST(LENOVO_SPECTRUM_OPERATION_TYPE.UnknownC5, 8, 0));
-GetFeature(device, out LENOVO_SPECTRUM_GENERIC_RESPONSE resC58);
-Print(resC58.Bytes);
-Console.WriteLine();
-
-Console.WriteLine(resD1.Bytes[4] == 0 ? "Keyboard is RGB." : "Not compatible.");
-
-var spectrumLayout = (resC47.Bytes[6], resC47.Bytes[5]) switch
-{
-    (22, 9) => "Full",
-    (20, 8) => "KeyboardAndFront",
-    (20, 7) => "KeyboardOnly",
-    _ => "Unknown"
-};
-Console.WriteLine($"Layout is {spectrumLayout}.");
-Console.WriteLine("Reading config complete.");
-Console.WriteLine();
-Console.ReadKey();
-
-Console.WriteLine(@"*** TEST 1***
-
-This program will now try to control brightness of the keyboard. Keyboard should turn off and then gradually increase brightness and turn off at the end.
-
-When ready, press any key to continue...
-");
-
-var brightnessLevels = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0 };
-
-foreach (var level in brightnessLevels)
-{
-    Console.WriteLine($"Setting brightness level to {level}...");
-    SetFeature(device, new LENOVO_SPECTRUM_GENERIC_REQUEST(LENOVO_SPECTRUM_OPERATION_TYPE.Brightness, level, 0));
-    await Task.Delay(250);
-}
-
-Console.WriteLine("Test complete, press any key to continue...");
-Console.WriteLine();
-Console.ReadKey();
-
-Console.WriteLine(@"***TEST 2***
-
-How to find a keycode for a specific key:
-  1. Open Vantage
-  2. Select the key that you want to find keycode for
-  3. Set the key to plain white (Hex: #FFFFFF, RGB: 255,255,255)
-  4. Make sure all other keys don't have any effect set (are off)
-  5. Set the keyboard brightness to maximum
-
-When ready, press any key to continue...
-");
-Console.ReadKey();
-
-Console.WriteLine("Reading white key keycodes...");
-Console.WriteLine();
-
-const int Iterations = 5;
-
-for (var i = 0; i < Iterations; i++)
-{
-    GetFeature(device, out LENOVO_SPECTRUM_STATE state);
-
-    var keys = state.Data
-        .Where(kv => HasColor(kv.Color))
-        .Select(kv => kv.Key)
-        .Select(k => "0x" + k.ToString("X4"))
-        .Split(8);
-
-    await Task.Delay(1000);
-
-    if (keys.SelectMany(k => k).IsEmpty())
+byte[] generateArray(int max) {
+    var result = new byte[max+1];
+    foreach (int index in Enumerable.Range(0, max+1))
     {
-        Console.WriteLine($"[{i + 1}/{Iterations}] No keys found");
-        continue;
+        result[index] = (byte)index;
+    }
+    return result;
+}
+
+var acendingBrightnessLevels = generateArray(5);
+var descendingBrightnessLevels = generateArray(5).Reverse();
+
+UserActivityMonitor uam = new UserActivityMonitor();
+
+byte lastActiveBrightnessLevel = 4;
+bool isInactive = false;
+while (true)
+{
+
+    if (!isInactive && uam.InactivityPeriod.Seconds > 5)
+    {
+        isInactive = true;
+
+        //var input = new LENOVO_SPECTRUM_GET_BRIGHTNESS_REQUEST();
+        //GetFeature(device, out LENOVO_SPECTRUM_GET_BRIGHTNESS_RESPONSE output);
+        //lastActiveBrightnessLevel = output.Brightness;
+        foreach (var level in generateArray(lastActiveBrightnessLevel).Reverse())
+        {
+            SetFeature(device, new LENOVO_SPECTRUM_GENERIC_REQUEST(LENOVO_SPECTRUM_OPERATION_TYPE.Brightness, level, 0));
+            await Task.Delay(50);
+        }
+
+    }
+    else if (isInactive && uam.InactivityPeriod.Seconds < 1)
+    {
+        isInactive = false;
+        foreach (var level in generateArray(lastActiveBrightnessLevel))
+        {
+            SetFeature(device, new LENOVO_SPECTRUM_GENERIC_REQUEST(LENOVO_SPECTRUM_OPERATION_TYPE.Brightness, level, 0));
+            await Task.Delay(50);
+        }
     }
 
-    Console.WriteLine($"[{i + 1}/{Iterations}] Keys with color found:");
-
-    foreach (var line in keys)
-        Console.WriteLine("    " + string.Join(", ", line));
-
+    await Task.Delay(100);
 }
 
-Console.WriteLine();
-Console.WriteLine("Test complete.");
-Console.WriteLine("Press any key to exit...");
-Console.ReadLine();
 
 #region Methods
 
@@ -254,6 +155,27 @@ internal struct LENOVO_SPECTRUM_GENERIC_REQUEST
         Value = value;
         Value2 = value2;
     }
+}
+
+[StructLayout(LayoutKind.Sequential, Size = 960)]
+internal readonly struct LENOVO_SPECTRUM_GET_BRIGHTNESS_REQUEST
+{
+    private readonly LENOVO_SPECTRUM_HEADER Header;
+
+    public LENOVO_SPECTRUM_GET_BRIGHTNESS_REQUEST()
+    {
+        Header = new LENOVO_SPECTRUM_HEADER(LENOVO_SPECTRUM_OPERATION_TYPE.GetBrightness, 0xC0);
+    }
+}
+
+[StructLayout(LayoutKind.Sequential, Size = 960)]
+internal readonly struct LENOVO_SPECTRUM_GET_BRIGHTNESS_RESPONSE
+{
+    private readonly byte ReportId;
+    private readonly LENOVO_SPECTRUM_OPERATION_TYPE Type;
+    private readonly byte Length;
+    private readonly byte Unknown1;
+    public readonly byte Brightness;
 }
 
 [StructLayout(LayoutKind.Sequential, Size = 960)]

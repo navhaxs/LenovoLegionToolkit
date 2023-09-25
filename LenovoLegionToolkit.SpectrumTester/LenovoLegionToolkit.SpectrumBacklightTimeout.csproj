@@ -2,9 +2,10 @@
 
 	<PropertyGroup>
 		<TargetFramework>net6.0-windows</TargetFramework>
+		<UseWindowsForms>true</UseWindowsForms>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<Platforms>x64</Platforms>
-		<OutputType>Exe</OutputType>
+		<OutputType>WinExe</OutputType>
 		<AssemblyName>SpectrumBacklightTimeout</AssemblyName>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
@@ -12,10 +13,11 @@
 		<PublishSingleFile>false</PublishSingleFile>
 		<PublishReadyToRun>false</PublishReadyToRun>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<StartupObject>SpectrumBacklightTimeout.Program</StartupObject>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\LenovoLegionToolkit.Lib\LenovoLegionToolkit.Lib.csproj" />
+	  <ProjectReference Include="..\LenovoLegionToolkit.Lib\LenovoLegionToolkit.Lib.csproj" />
 	</ItemGroup>
 
 </Project>
